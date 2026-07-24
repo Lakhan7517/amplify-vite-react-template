@@ -74,6 +74,52 @@ h1 {
   white-space: nowrap;
 }
 
+.auth-form,
+.auth-logged-in {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 16px;
+  padding: 14px;
+  border-radius: 14px;
+  background: rgba(30, 41, 59, 0.7);
+  border: 1px solid rgba(148, 163, 184, 0.16);
+}
+
+.auth-toggle {
+  display: flex;
+  gap: 8px;
+}
+
+.auth-toggle button,
+.auth-submit {
+  border: none;
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: rgba(148, 163, 184, 0.16);
+  color: white;
+  cursor: pointer;
+}
+
+.auth-toggle button.active,
+.auth-submit {
+  background: linear-gradient(135deg, #8b5cf6, #3b82f6);
+}
+
+.auth-form input {
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  background: rgba(15, 23, 42, 0.8);
+  color: #f8fafc;
+  outline: none;
+}
+
+.message {
+  margin: 0;
+  color: #cbd5e1;
+}
+
 .task-form {
   display: flex;
   gap: 12px;

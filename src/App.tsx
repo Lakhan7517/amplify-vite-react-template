@@ -1,10 +1,17 @@
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useEffect, useState } from "react";
+import { signIn, signOut, signUp, getCurrentUser } from "aws-amplify/auth";
 import outputs from "../amplify_outputs.json";
 import "./App.css";
 
 type TodoItem = {
   id: string;
   content: string;
+};
+
+type AuthMode = "signIn" | "signUp";
+
+type AuthUser = {
+  username?: string;
 };
 
 function App() {
@@ -15,8 +22,27 @@ function App() {
   ]);
   const [newTodo, setNewTodo] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [authMode, setAuthMode] = useState<AuthMode>("signIn");
+  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [message, setMessage] = useState("");
   const endpoint = outputs.data?.url;
   const apiKey = outputs.data?.api_key;
+
+  useEffect(() => {
+    async function loadUser() {
+      try {
+        const currentUser = await getCurrentUser();
+        setUser({ username: currentUser.username });
+      } catch {
+        setUser(null);
+      }
+    }
+
+    loadUser();
+  }, []);
 
   async function addTodo(event?: FormEvent) {
     event?.preventDefault();
@@ -59,6 +85,42 @@ function App() {
     setTodos((current) => current.filter((todo) => todo.id !== id));
   }
 
+  async function handleAuth(event: FormEvent) {
+    event.preventDefault();
+    setMessage("");
+
+    try {
+      if (authMode === "signUp") {
+        await signUp({
+          username,
+          password,
+          options: { autoSignIn: true, userAttributes: { email } },
+        });
+        setMessage("Account created. Please sign in.");
+      } else {
+        const response = await signIn({ username, password });
+        if (response.isSignedIn) {
+          setUser({ username });
+          setMessage("Signed in successfully.");
+        }
+      }
+    } catch (error) {
+      console.error(error);
+      setMessage("Authentication failed. Check your details and try again.");
+    }
+  }
+
+  async function handleSignOut() {
+    try {
+      await signOut();
+      setUser(null);
+      setMessage("Signed out successfully.");
+    } catch (error) {
+      console.error(error);
+      setMessage("Could not sign out right now.");
+    }
+  }
+
   return (
     <main className="app-shell">
       <section className="app-card">
@@ -68,8 +130,36 @@ function App() {
             <h1>Stay on top of your day</h1>
             <p className="subtitle">Capture ideas, tasks, and plans in one polished workspace.</p>
           </div>
-          <div className="status-pill">Cloud connected</div>
+          <div className="status-pill">{user ? `Hello, ${user.username}` : "Cloud connected"}</div>
         </div>
+
+        {!user ? (
+          <form className="auth-form" onSubmit={handleAuth}>
+            <div className="auth-toggle">
+              <button type="button" className={authMode === "signIn" ? "active" : ""} onClick={() => setAuthMode("signIn")}>
+                Sign In
+              </button>
+              <button type="button" className={authMode === "signUp" ? "active" : ""} onClick={() => setAuthMode("signUp")}>
+                Sign Up
+              </button>
+            </div>
+
+            <input type="text" placeholder="Username" value={username} onChange={(event) => setUsername(event.target.value)} />
+            {authMode === "signUp" && <input type="email" placeholder="Email" value={email} onChange={(event) => setEmail(event.target.value)} />}
+            <input type="password" placeholder="Password" value={password} onChange={(event) => setPassword(event.target.value)} />
+            <button type="submit" className="auth-submit">
+              {authMode === "signIn" ? "Sign In" : "Create Account"}
+            </button>
+            {message && <p className="message">{message}</p>}
+          </form>
+        ) : (
+          <div className="auth-logged-in">
+            <p className="message">You are signed in.</p>
+            <button type="button" className="auth-submit" onClick={handleSignOut}>
+              Sign Out
+            </button>
+          </div>
+        )}
 
         <form className="task-form" onSubmit={addTodo}>
           <input
