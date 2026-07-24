@@ -1,5 +1,5 @@
 import { type FormEvent, useEffect, useState } from "react";
-import { signIn, signOut, signUp, getCurrentUser } from "aws-amplify/auth";
+import { signIn, signOut, getCurrentUser } from "aws-amplify/auth";
 import outputs from "../amplify_outputs.json";
 import "./App.css";
 
@@ -7,8 +7,6 @@ type TodoItem = {
   id: string;
   content: string;
 };
-
-type AuthMode = "signIn" | "signUp";
 
 type AuthUser = {
   username?: string;
@@ -22,9 +20,7 @@ function App() {
   ]);
   const [newTodo, setNewTodo] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [authMode, setAuthMode] = useState<AuthMode>("signIn");
   const [username, setUsername] = useState("");
-  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [user, setUser] = useState<AuthUser | null>(null);
   const [message, setMessage] = useState("");
@@ -90,19 +86,10 @@ function App() {
     setMessage("");
 
     try {
-      if (authMode === "signUp") {
-        await signUp({
-          username,
-          password,
-          options: { autoSignIn: true, userAttributes: { email } },
-        });
-        setMessage("Account created. Please sign in.");
-      } else {
-        const response = await signIn({ username, password });
-        if (response.isSignedIn) {
-          setUser({ username });
-          setMessage("Signed in successfully.");
-        }
+      const response = await signIn({ username, password });
+      if (response.isSignedIn) {
+        setUser({ username });
+        setMessage("Signed in successfully.");
       }
     } catch (error) {
       console.error(error);
@@ -135,20 +122,10 @@ function App() {
 
         {!user ? (
           <form className="auth-form" onSubmit={handleAuth}>
-            <div className="auth-toggle">
-              <button type="button" className={authMode === "signIn" ? "active" : ""} onClick={() => setAuthMode("signIn")}>
-                Sign In
-              </button>
-              <button type="button" className={authMode === "signUp" ? "active" : ""} onClick={() => setAuthMode("signUp")}>
-                Sign Up
-              </button>
-            </div>
-
             <input type="text" placeholder="Username" value={username} onChange={(event) => setUsername(event.target.value)} />
-            {authMode === "signUp" && <input type="email" placeholder="Email" value={email} onChange={(event) => setEmail(event.target.value)} />}
             <input type="password" placeholder="Password" value={password} onChange={(event) => setPassword(event.target.value)} />
             <button type="submit" className="auth-submit">
-              {authMode === "signIn" ? "Sign In" : "Create Account"}
+              Sign In
             </button>
             {message && <p className="message">{message}</p>}
           </form>
