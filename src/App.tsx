@@ -1,6 +1,4 @@
 import { type FormEvent, useEffect, useState } from "react";
-import { signIn, signOut, getCurrentUser } from "aws-amplify/auth";
-import outputs from "../amplify_outputs.json";
 import "./App.css";
 
 type TodoItem = {
@@ -8,37 +6,41 @@ type TodoItem = {
   content: string;
 };
 
-type AuthUser = {
-  username?: string;
-};
+const STORAGE_KEY = "taskboard-items";
+
+const defaultTodos: TodoItem[] = [
+  { id: "demo-1", content: "Set up the project" },
+  { id: "demo-2", content: "Run the app" },
+  { id: "demo-3", content: "View it in the browser" },
+];
 
 function App() {
-  const [todos, setTodos] = useState<TodoItem[]>([
-    { id: "demo-1", content: "Set up the project" },
-    { id: "demo-2", content: "Run the app" },
-    { id: "demo-3", content: "View it in the browser" },
-  ]);
-  const [newTodo, setNewTodo] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const [user, setUser] = useState<AuthUser | null>(null);
-  const [message, setMessage] = useState("");
-  const endpoint = outputs.data?.url;
-  const apiKey = outputs.data?.api_key;
-
-  useEffect(() => {
-    async function loadUser() {
-      try {
-        const currentUser = await getCurrentUser();
-        setUser({ username: currentUser.username });
-      } catch {
-        setUser(null);
-      }
+  const [todos, setTodos] = useState<TodoItem[]>(() => {
+    if (typeof window === "undefined") {
+      return defaultTodos;
     }
 
-    loadUser();
-  }, []);
+    try {
+      const saved = window.localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved) as TodoItem[];
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      }
+    } catch {
+      // Fall back to the built-in starter tasks when storage is unavailable.
+    }
+
+    return defaultTodos;
+  });
+  const [newTodo, setNewTodo] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(todos));
+  }, [todos]);
 
   async function addTodo(event?: FormEvent) {
     event?.preventDefault();
@@ -46,66 +48,22 @@ function App() {
     if (!value) return;
 
     setIsSubmitting(true);
+    setMessage("");
 
-    const mutation = `mutation CreateTodo($input: CreateTodoInput!) { createTodo(input: $input) { id content createdAt updatedAt } }`;
+    const newItem: TodoItem = {
+      id: globalThis.crypto?.randomUUID?.() ?? `${Date.now()}`,
+      content: value,
+    };
 
-    try {
-      const res = await fetch(endpoint!, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": apiKey ?? "",
-        },
-        body: JSON.stringify({ query: mutation, variables: { input: { content: value } } }),
-      });
-
-      const json = await res.json();
-      if (json.errors) {
-        throw new Error(json.errors[0]?.message ?? "Failed to save item");
-      }
-
-      const created = json.data?.createTodo;
-      if (created) {
-        setTodos((current) => [{ id: created.id, content: created.content ?? value }, ...current]);
-      }
-      setNewTodo("");
-    } catch (err) {
-      console.error(err);
-      alert("Failed to save the task. Please try again.");
-    } finally {
-      setIsSubmitting(false);
-    }
+    setTodos((current) => [newItem, ...current]);
+    setNewTodo("");
+    setMessage("Task saved locally.");
+    setIsSubmitting(false);
   }
 
   function removeTodo(id: string) {
     setTodos((current) => current.filter((todo) => todo.id !== id));
-  }
-
-  async function handleAuth(event: FormEvent) {
-    event.preventDefault();
-    setMessage("");
-
-    try {
-      const response = await signIn({ username, password });
-      if (response.isSignedIn) {
-        setUser({ username });
-        setMessage("Signed in successfully.");
-      }
-    } catch (error) {
-      console.error(error);
-      setMessage("Authentication failed. Check your details and try again.");
-    }
-  }
-
-  async function handleSignOut() {
-    try {
-      await signOut();
-      setUser(null);
-      setMessage("Signed out successfully.");
-    } catch (error) {
-      console.error(error);
-      setMessage("Could not sign out right now.");
-    }
+    setMessage("Task removed.");
   }
 
   return (
@@ -113,30 +71,14 @@ function App() {
       <section className="app-card">
         <div className="hero">
           <div>
-            <p className="eyebrow">AWS Amplify + React</p>
+            <p className="eyebrow">Task Board</p>
             <h1>Stay on top of your day</h1>
             <p className="subtitle">Capture ideas, tasks, and plans in one polished workspace.</p>
           </div>
-          <div className="status-pill">{user ? `Hello, ${user.username}` : "Cloud connected"}</div>
+          <div className="status-pill">Local save ready</div>
         </div>
 
-        {!user ? (
-          <form className="auth-form" onSubmit={handleAuth}>
-            <input type="text" placeholder="Username" value={username} onChange={(event) => setUsername(event.target.value)} />
-            <input type="password" placeholder="Password" value={password} onChange={(event) => setPassword(event.target.value)} />
-            <button type="submit" className="auth-submit">
-              Sign In
-            </button>
-            {message && <p className="message">{message}</p>}
-          </form>
-        ) : (
-          <div className="auth-logged-in">
-            <p className="message">You are signed in.</p>
-            <button type="button" className="auth-submit" onClick={handleSignOut}>
-              Sign Out
-            </button>
-          </div>
-        )}
+        {message && <p className="message">{message}</p>}
 
         <form className="task-form" onSubmit={addTodo}>
           <input
@@ -153,7 +95,7 @@ function App() {
 
         <div className="meta-row">
           <span>{todos.length} tasks</span>
-          <span>Live sync ready</span>
+          <span>Saved in this browser</span>
         </div>
 
         <ul className="todo-list">
