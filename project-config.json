@@ -1,0 +1,6 @@
+{
+  "name": "Key Go Rental Management System",
+  "version": "1.0.0",
+  "description": "Project configuration for the Vite + React app",
+  "runCommand": "npm run dev"
+}
